@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Worker Chat Support</title>
+    <style>
+        /* Reset CSS */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', Arial, sans-serif;
+            background: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .chat-container {
+            width: 90%;
+            max-width: 450px;
+            height: 95%;
+            background: #ffffff;
+            border-radius: 15px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            color: white;
+            text-align: center;
+            padding: 15px;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .chat-body {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            background: #f9fafb;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 10px;
+            border-radius: 15px;
+            font-size: 14px;
+            line-height: 1.6;
+            word-wrap: break-word;
+        }
+
+        .message.bot {
+            align-self: flex-start;
+            background: #e9f5ff;
+            color: #333;
+            border: 1px solid #d0e9ff;
+        }
+
+        .message.user {
+            align-self: flex-end;
+            background: #007bff;
+            color: white;
+        }
+
+        .chat-footer {
+            padding: 10px;
+            background: #f0f2f5;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-top: 1px solid #ccc;
+        }
+
+        .chat-footer input {
+            flex: 1;
+            padding: 10px 15px;
+            font-size: 16px;
+            border-radius: 25px;
+            border: 1px solid #ccc;
+            outline: none;
+        }
+
+        .chat-footer button {
+            padding: 10px 20px;
+            font-size: 16px;
+            color: white;
+            background: #007bff;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .chat-footer button:hover {
+            background: #0056b3;
+        }
+
+        /* Responsive Design */
+        @media screen and (max-width: 600px) {
+            .chat-container {
+                height: 90%;
+            }
+
+            .chat-header {
+                font-size: 18px;
+            }
+
+            .chat-footer input {
+                font-size: 14px;
+            }
+
+            .chat-footer button {
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            Worker Support Chat
+        </div>
+        <div class="chat-body" id="chatBody">
+            <div class="message bot">ওয়ার্কার সাপোর্ট সেন্টারে স্বাগতম। সাহায্য প্রয়োজন হলে হ্যাঁ অথবা না লিখুন।</div>
+        </div>
+        <div class="chat-footer">
+            <input type="text" id="userInput" placeholder="আপনার মেসেজ লিখুন...">
+            <button id="sendButton">পাঠান</button>
+        </div>
+    </div>
+
+    <script>
+        // Google Sheets URLs
+        const verificationSheetURL = 'https://docs.google.com/spreadsheets/d/1f1CcmLqj579cUNfwOKg8cDApggpOSq1_E3BYytYozIQ/export?format=csv';
+        const dataSheetURL = 'https://docs.google.com/spreadsheets/d/1HewTW9tETCsI0kHsyMbZ6h5tKSSG6T4M9uwRkiGmVJY/export?format=csv';
+
+        // Chat Elements
+        const chatBody = document.getElementById('chatBody');
+        const userInput = document.getElementById('userInput');
+        const sendButton = document.getElementById('sendButton');
+
+        let verifiedWorker = null;
+
+        // Functions to handle chat
+        function sendMessage(message, sender = 'user') {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+            messageDiv.textContent = message;
+            chatBody.appendChild(messageDiv);
+            chatBody.scrollTop = chatBody.scrollHeight;
+        }
+
+        async function fetchCSV(url) {
+            const response = await fetch(url);
+            const text = await response.text();
+            return text.split('\n').map(row => row.split(','));
+        }
+
+        async function verifyWorker(whatsappNumber) {
+            const data = await fetchCSV(verificationSheetURL);
+            return data.find(row => row[2].trim() === whatsappNumber.trim());
+        }
+
+        async function getWorkerStats(workerName) {
+            const data = await fetchCSV(dataSheetURL);
+            const workerData = data.filter(row => row[1].trim() === workerName.trim());
+
+            const totalAttendance = workerData.reduce((sum, row) => sum + (parseInt(row[4] || 0)), 0);
+            const totalPayment = workerData.reduce((sum, row) => sum + (parseFloat(row[5] || 0)), 0);
+
+            return { workerData, totalAttendance, totalPayment };
+        }
+
+        async function handleBotResponse(userMessage) {
+            if (!verifiedWorker && userMessage.startsWith('+88')) {
+                sendMessage("অনুগ্রহ করে অপেক্ষা করুন, আপনার তথ্য যাচাই হচ্ছে...", "bot");
+                const worker = await verifyWorker(userMessage);
+
+                if (worker) {
+                    verifiedWorker = {
+                        name: worker[1],
+                        position: worker[3],
+                        wage: worker[4],
+                        number: worker[2],
+                    };
+                    sendMessage(`ভেরিফিকেশন সফল। ওয়ার্কার নাম: ${verifiedWorker.name}, পদবী: ${verifiedWorker.position}, বেতন: ${verifiedWorker.wage}`, "bot");
+                    sendMessage("আপনার প্রশ্ন লিখুন:\n1. আমার সর্বমোট হাজিরা\n2. আমার বেতন\n3. সর্বমোট পেমেন্ট\n4. পাওনা\n5. আজকের তথ্য", "bot");
+                } else {
+                    sendMessage("ভুল নম্বর। সঠিক নম্বর দিন।", "bot");
+                }
+            } else if (verifiedWorker) {
+                const stats = await getWorkerStats(verifiedWorker.name);
+                if (userMessage === "1") sendMessage(`সর্বমোট হাজিরা: ${stats.totalAttendance} দিন।`, "bot");
+                else if (userMessage === "2") sendMessage(`সর্বমোট বেতন: ${stats.totalAttendance * parseFloat(verifiedWorker.wage)} টাকা।`, "bot");
+                else if (userMessage === "3") sendMessage(`সর্বমোট পেমেন্ট: ${stats.totalPayment} টাকা।`, "bot");
+                else if (userMessage === "4") sendMessage(`সর্বমোট পাওনা: ${(stats.totalAttendance * parseFloat(verifiedWorker.wage)) - stats.totalPayment} টাকা।`, "bot");
+                else sendMessage("অপশন সঠিক নয়।", "bot");
+            } else {
+                sendMessage("প্রথমে আপনার WhatsApp নম্বর দিন।+88 এই কান্ট্রি কোডটি সহ", "bot");
+            }
+        }
+
+        // Event Listeners
+        sendButton.addEventListener('click', () => {
+            const userMessage = userInput.value.trim();
+            if (userMessage) {
+                sendMessage(userMessage, 'user');
+                handleBotResponse(userMessage);
+                userInput.value = '';
+            }
+        });
+
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendButton.click();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>লাইভ চ্যাট সাপোর্ট</title>
+    <style>
+        /* Reset CSS */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: white;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .chat-container {
+            width: 100%;
+            max-width: 500px;
+            height: 100%;
+            background: #fff;
+            border-radius: 0px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .chat-header {
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            color: white;
+            padding: 15px;
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+        }
+        .chat-body {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .message {
+            max-width: 80%;
+            padding: 10px;
+            border-radius: 10px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .message.bot {
+            align-self: flex-start;
+            background: #e9f5ff;
+            color: #333;
+            border: 1px solid #d0e9ff;
+        }
+        .message.user {
+            align-self: flex-end;
+            background: #007bff;
+            color: white;
+        }
+        .chat-footer {
+            padding: 10px;
+            background: #f9fafb;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .chat-footer input {
+            flex: 1;
+            padding: 10px 15px;
+            font-size: 16px;
+            border-radius: 25px;
+            border: 1px solid #ccc;
+            outline: none;
+        }
+        .chat-footer button {
+            padding: 10px 20px;
+            font-size: 16px;
+            color: white;
+            background: #007bff;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .chat-footer button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">মলিক পক্ষ সাপোর্ট সেন্টার</div>
+        <div class="chat-body" id="chatBody">
+            <!-- Initial Message -->
+            <div class="message bot">
+                মালিক পক্ষ সাপোর্ট সেন্টার থেকে আমি মোঃ সোহানুর রহমান সোহান।<br>
+                আপনার কি কোন সাহায্য প্রয়োজন? হ্যাঁ অথবা না লিখুন।
+            </div>
+        </div>
+        <div class="chat-footer">
+            <input type="text" id="userInput" placeholder="আপনার মেসেজ লিখুন...">
+            <button id="sendButton">পাঠান</button>
+        </div>
+    </div>
+
+    <script>
+        const firstLink = "https://docs.google.com/spreadsheets/d/1K-i7ftrUvjhMZbD_eGFIxxAVaFCNE2fYrlnrbWq6z7M/export?format=csv";
+        const secondLink = "https://docs.google.com/spreadsheets/d/1G0EamGpxhT-zGWjRLUlOd9vceqIefYyngJARQVu9t4s/export?format=csv";
+
+        const chatBody = document.getElementById("chatBody");
+        const userInput = document.getElementById("userInput");
+        const sendButton = document.getElementById("sendButton");
+
+        let firstLinkData = [];
+        let secondLinkData = [];
+        let verifiedUser = null;
+
+        async function fetchData() {
+            const response1 = await fetch(firstLink);
+            const text1 = await response1.text();
+            firstLinkData = text1.split("\n").slice(1).map(row => row.split(","));
+
+            const response2 = await fetch(secondLink);
+            const text2 = await response2.text();
+            secondLinkData = text2.split("\n").slice(1).map(row => row.split(","));
+        }
+
+        async function verifyUser(phone) {
+            return firstLinkData.find(row => row[2]?.trim() === phone.trim());
+        }
+
+        function filterPayments(phone) {
+            return secondLinkData.filter(row => row[2]?.trim() === phone.trim());
+        }
+
+        function sendMessage(message, sender = "bot") {
+            const messageDiv = document.createElement("div");
+            messageDiv.className = `message ${sender}`;
+            messageDiv.textContent = message;
+            chatBody.appendChild(messageDiv);
+            chatBody.scrollTop = chatBody.scrollHeight;
+        }
+
+        async function handleUserMessage(message) {
+            if (!verifiedUser && message.startsWith("+88")) {
+                sendMessage("অনুগ্রহ করে অপেক্ষা করুন, আপনার তথ্য যাচাই হচ্ছে...", "bot");
+                await fetchData();
+                const user = await verifyUser(message);
+
+                if (user) {
+                    verifiedUser = { name: user[1], phone: user[2], address: user[3] };
+                    sendMessage(`ভেরিফিকেশন সফল। মালিক নাম: ${user[1]} ঠিকানা: ${user[3]}`, "bot");
+                    sendMessage("আপনার প্রশ্ন লিখুন:\n1. আমার সর্বমোট পেমেন্ট কত\n2. আমার সর্বশেষ পেমেন্ট কত\n3. আমার প্রথম পেমেন্ট কত\n4. আজকের পেমেন্ট তথ্য\n5. চলতি মাসের পেমেন্ট তথ্য\n6. তারিখ দিয়ে সার্চ করুন।", "bot");
+                } else {
+                    sendMessage("আপনার হোয়াটসঅ্যাপ নাম্বার সঠিক নয়!", "bot");
+                }
+            } else if (verifiedUser) {
+                const payments = filterPayments(verifiedUser.phone);
+                if (message === "1") {
+                    const total = payments.reduce((sum, row) => sum + parseFloat(row[4] || 0), 0);
+                    sendMessage(`সর্বমোট পেমেন্ট: ৳${total}`, "bot");
+                } else if (message === "2") {
+                    const latestPayment = payments[payments.length - 1];
+                    sendMessage(`সর্বশেষ পেমেন্ট: ৳${latestPayment ? latestPayment[4] : 0}`, "bot");
+                } else if (message === "3") {
+                    const firstPayment = payments[0];
+                    sendMessage(`প্রথম পেমেন্ট: ৳${firstPayment ? firstPayment[4] : 0}`, "bot");
+                } else {
+                    sendMessage("অনুগ্রহ করে সঠিক অপশন লিখুন।", "bot");
+                }
+            } else {
+                sendMessage("প্রথমে আপনার WhatsApp নাম্বার দিন।", "bot");
+            }
+        }
+
+        sendButton.addEventListener("click", () => {
+            const userMessage = userInput.value.trim();
+            if (userMessage) {
+                sendMessage(userMessage, "user");
+                handleUserMessage(userMessage);
+                userInput.value = "";
+            }
+        });
+
+        userInput.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") sendButton.click();
+        });
+    </script>
+</body>
+</html>
